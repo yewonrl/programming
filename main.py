@@ -38,7 +38,7 @@ with st.sidebar.form("sim_form"):
 # ---------------------------------------------------------
 if submitted:
     try:
-        # [채점기준 6] 입력값 유효성 예외 처리
+        # 입력값 유효성 예외 처리
         if initial_pop <= 0 or gen_time_min <= 0 or total_hours <= 0:
             st.error("🚨 모든 입력값(초기 균수, 세대 시간, 시뮬레이션 시간)은 0보다 커야 합니다.")
             st.stop()
@@ -47,19 +47,13 @@ if submitted:
             st.warning("⚠️ 억제제 투여 시점이 총 시뮬레이션 시간보다 큽니다. 시뮬레이션 범위 내로 투여 시점을 조정했습니다.")
             inhibit_time_hr = float(total_hours)
 
-        # ---------------------------------------------------------
-        # [채점기준 5] 핵심 알고리즘: 시간대별 개체 수 연산
-        # ---------------------------------------------------------
+        # 핵심 알고리즘: 시간대별 개체 수 연산
         time_points = []
         pop_control = []     # 대조군 (억제제 미투여)
         pop_treated = []     # 실험군 (억제제 투여)
         
         gen_time_hr = gen_time_min / 60.0  # 분 단위를 시간 단위로 변환
         
-        current_pop_ctrl = float(initial_pop)
-        current_pop_treat = float(initial_pop)
-        
-        # 0.5시간 간격으로 시뮬레이션 진행
         step_hr = 0.5
         steps = int(total_hours / step_hr) + 1
 
@@ -69,21 +63,4 @@ if submitted:
             
             # 1. 대조군 계산: N(t) = N0 * 2^(t / g)
             num_generations_ctrl = t / gen_time_hr
-            pop_c = initial_pop * (2 ** num_generations_ctrl)
-            pop_control.append(round(pop_c, 2))
-            
-            # 2. 실험군 계산 (억제제 적용)
-            if not use_inhibitor or t < inhibit_time_hr:
-                # 억제제 투여 전: 정상 지수 증식
-                pop_t = pop_c
-            else:
-                # 억제제 투여 후: 세대 시간이 늘어나거나 억제율에 따라 증식 속도 감소
-                time_after_inhibit = t - inhibit_time_hr
-                pop_at_inhibit = initial_pop * (2 ** (inhibit_time_hr / gen_time_hr))
-                
-                # 억제율 적용된 실질 증식률 (효능 100%일 경우 감쇄기 진입)
-                effective_rate = (100 - inhibit_rate_pct) / 100.0
-                
-                if inhibit_rate_pct == 100:
-                    # 100% 억제 시 개체 수 점진적 사멸 (감쇄기)
-                    pop_t = pop_at
+            pop
