@@ -45,7 +45,5 @@ inhibit_conc = st.sidebar.slider("억제제 농도 / 강도 (%)", min_value=10, 
 # Main Logic & Computation
 # ---------------------------------------------------------
 try:
-    # 입력값 유효성 예외 처리
     if initial_pop <= 0 or gen_time_min <= 0 or total_hours <= 0:
-        st.error("🚨 모든 입력값은 0보다 커야 합니다.")
-        st.stop()
+        st.error("🚨 모든 입력값은 0보다 커야 합니다
