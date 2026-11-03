@@ -28,7 +28,15 @@ st.sidebar.divider()
 st.sidebar.subheader("💊 억제제(Inhibitor) 설정")
 use_inhibitor = st.sidebar.checkbox("억제제 투여 적용", value=True)
 
-inhibitor_type = st.sidebar.selectbox("억제제 작용 메커니즘 종류", ["1. 경쟁적 억제제 (Competitive)", "2. 비경쟁적 억제제 (Non-competitive)", "3. 무경쟁적 억제제 (Uncompetitive)", "4. 사멸 유도형 (Bactericidal / 100% 억제)"])
+inhibitor_type = st.sidebar.selectbox(
+    "억제제 작용 메커니즘 종류",
+    [
+        "1. 경쟁적 억제제 (Competitive)",
+        "2. 비경쟁적 억제제 (Non-competitive)",
+        "3. 무경쟁적 억제제 (Uncompetitive)",
+        "4. 사멸 유도형 (Bactericidal / 100% 억제)"
+    ]
+)
 
 inhibit_time_hr = st.sidebar.number_input("억제제 투여 시점 (시간 후)", min_value=0.0, max_value=72.0, value=4.0, step=0.5)
 inhibit_conc = st.sidebar.slider("억제제 농도 / 강도 (%)", min_value=10, max_value=100, value=70)
@@ -36,13 +44,79 @@ inhibit_conc = st.sidebar.slider("억제제 농도 / 강도 (%)", min_value=10, 
 # ---------------------------------------------------------
 # Main Logic & Computation
 # ---------------------------------------------------------
-try:
-    if initial_pop <= 0 or gen_time_min <= 0 or total_hours <= 0:
-        st.error("🚨 모든 입력값은 0보다 커야 합니다.")
-    else:
-        if use_inhibitor and inhibit_time_hr > total_hours:
-            st.warning("⚠️ 억제제 투여 시점이 총 시뮬레이션 시간보다 커 범위를 자동으로 조정했습니다.")
-            inhibit_time_hr = float(total_hours)
+if use_inhibitor and inhibit_time_hr > total_hours:
+    st.warning("⚠️ 억제제 투여 시점이 총 시뮬레이션 시간보다 커 범위를 자동으로 조정했습니다.")
+    inhibit_time_hr = float(total_hours)
 
-        # 시간 및 생장 알고리즘 연산
-        time_points = []
+# 시간 및 생장 알고리즘 연산
+time_points = []
+pop_control = []
+pop_treated = []
+
+gen_time_hr = gen_time_min / 60.0
+step_hr = 0.5
+steps = int(total_hours / step_hr) + 1
+
+for i in range(steps):
+    t = i * step_hr
+    time_points.append(t)
+    
+    # 1. 대조군 (정상 지수 증식)
+    num_generations_ctrl = t / gen_time_hr
+    pop_c = initial_pop * (2 ** num_generations_ctrl)
+    pop_control.append(round(pop_c, 2))
+    
+    # 2. 실험군 (억제제 종류별 메커니즘)
+    if not use_inhibitor or t < inhibit_time_hr:
+        pop_t = pop_c
+    else:
+        time_after = t - inhibit_time_hr
+        pop_at_inhibit = initial_pop * (2 ** (inhibit_time_hr / gen_time_hr))
+        intensity = inhibit_conc / 100.0
+        
+        if "1. 경쟁적" in inhibitor_type:
+            adjusted_gen_time = gen_time_hr * (1 + (intensity * 1.5))
+            pop_t = pop_at_inhibit * (2 ** (time_after / adjusted_gen_time))
+        elif "2. 비경쟁적" in inhibitor_type:
+            adjusted_gen_time = gen_time_hr * (1 + (intensity * 4.0))
+            pop_t = pop_at_inhibit * (2 ** (time_after / adjusted_gen_time))
+        elif "3. 무경쟁적" in inhibitor_type:
+            adjusted_gen_time = gen_time_hr * (1 + (intensity * 2.5))
+            pop_t = pop_at_inhibit * (2 ** (time_after / adjusted_gen_time))
+        else:
+            pop_t = pop_at_inhibit * math.exp(-0.15 * intensity * time_after)
+
+    pop_treated.append(round(pop_t, 2))
+
+# 데이터프레임 생성
+df_result = pd.DataFrame({
+    "시간 (시간)": time_points,
+    "대조군 (미투여)": pop_control,
+    f"실험군 ({inhibitor_type.split(' ')[1]})": pop_treated
+})
+
+# ---------------------------------------------------------
+# Output UI
+# ---------------------------------------------------------
+st.subheader("📊 1. 미생물 생장 시뮬레이션 결과 메트릭")
+
+final_ctrl = pop_control[-1]
+final_treat = pop_treated[-1]
+reduction_rate = ((final_ctrl - final_treat) / final_ctrl) * 100 if final_ctrl > 0 else 0
+
+col1, col2, col3 = st.columns(3)
+col1.metric("최종 개체 수 (대조군)", f"{final_ctrl:,.0f} CFU")
+col2.metric(f"최종 개체 수 ({inhibitor_type.split(' ')[1]})", f"{final_treat:,.0f} CFU")
+col3.metric("개체 수 감소율", f"{reduction_rate:.1f}%")
+
+st.divider()
+
+st.subheader(f"📈 2. 억제제 종류별 생장 곡선 시각화 [{inhibitor_type}]")
+chart_df = df_result.set_index("시간 (시간)")
+st.line_chart(chart_df)
+
+st.divider()
+
+st.subheader("🧪 생명과학 이론 메커니즘 분석")
+if "1. 경쟁적" in inhibitor_type:
+    st.info("💡 **경쟁적 억제제:** 억제제가 효소의 활성 부위에 기질과 경쟁하여 결합합니다. 세대 시간이 길어지지만 기질 농도가 높으면 억
