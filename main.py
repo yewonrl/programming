@@ -6,17 +6,17 @@ import math
 # Page Setup
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="미생물 지수적 증식 시뮬레이터",
+    page_title="미생물 지수적 증식 및 억제제 시뮬레이터",
     page_icon="🧫",
     layout="wide"
 )
 
-st.title("🧫 미생물/세포 지수적 증식 및 억제제 효능 시뮬레이터")
-st.markdown("생명과학의 미생물 생장 수식 모델을 기반으로 개체 수 변화와 항생제(억제제)의 효과를 예측합니다.")
+st.title("🧫 미생물 증식 및 억제제 종류별 효능 시뮬레이터")
+st.markdown("생명과학의 **효소 억제 메커니즘(경쟁적/비경쟁적/무경쟁적)**을 적용하여 억제제 종류별 미생물 생장 곡선을 비교 분석합니다.")
 st.divider()
 
 # ---------------------------------------------------------
-# Sidebar: 조건 입력 및 예외 처리
+# Sidebar: 조건 입력 및 억제제 종류 선택
 # ---------------------------------------------------------
 st.sidebar.header("⚙️ 시뮬레이션 조건 설정")
 
@@ -26,10 +26,22 @@ with st.sidebar.form("sim_form"):
     total_hours = st.number_input("총 시뮬레이션 시간 (시간)", min_value=1, max_value=72, value=12, step=1)
     
     st.divider()
-    st.subheader("💊 억제제(항생제) 설정")
-    use_inhibitor = st.checkbox("억제제 투여 시뮬레이션 적용")
+    st.subheader("💊 억제제(Inhibitor) 설정")
+    use_inhibitor = st.checkbox("억제제 투여 적용", value=True)
+    
+    # 억제제 종류 선택 기능 추가
+    inhibitor_type = st.selectbox(
+        "억제제 작용 메커니즘 종류",
+        [
+            "1. 경쟁적 억제제 (Competitive)",
+            "2. 비경쟁적 억제제 (Non-competitive)",
+            "3. 무경쟁적 억제제 (Uncompetitive)",
+            "4. 사멸 유도형 (Bactericidal / 100% 억제)"
+        ]
+    )
+    
     inhibit_time_hr = st.number_input("억제제 투여 시점 (시간 후)", min_value=0.0, max_value=72.0, value=4.0, step=0.5)
-    inhibit_rate_pct = st.slider("억제제 효능 (증식 억제율 %)", min_value=0, max_value=100, value=80)
+    inhibit_conc = st.slider("억제제 농도 / 강도 (%)", min_value=10, max_value=100, value=70)
 
     submitted = st.form_submit_button("🧪 시뮬레이션 실행")
 
@@ -40,88 +52,8 @@ if submitted:
     try:
         # 입력값 유효성 예외 처리
         if initial_pop <= 0 or gen_time_min <= 0 or total_hours <= 0:
-            st.error("🚨 모든 입력값(초기 균수, 세대 시간, 시뮬레이션 시간)은 0보다 커야 합니다.")
+            st.error("🚨 모든 입력값은 0보다 커야 합니다.")
             st.stop()
             
         if use_inhibitor and inhibit_time_hr > total_hours:
-            st.warning("⚠️ 억제제 투여 시점이 총 시뮬레이션 시간보다 큽니다. 시뮬레이션 범위 내로 투여 시점을 조정했습니다.")
-            inhibit_time_hr = float(total_hours)
-
-        # 핵심 알고리즘: 시간대별 개체 수 연산
-        time_points = []
-        pop_control = []
-        pop_treated = []
-        
-        gen_time_hr = gen_time_min / 60.0
-        step_hr = 0.5
-        steps = int(total_hours / step_hr) + 1
-
-        for i in range(steps):
-            t = i * step_hr
-            time_points.append(t)
-            
-            # 1. 대조군 계산
-            num_generations_ctrl = t / gen_time_hr
-            pop_c = initial_pop * (2 ** num_generations_ctrl)
-            pop_control.append(round(pop_c, 2))
-            
-            # 2. 실험군 계산 (억제제 적용)
-            if not use_inhibitor or t < inhibit_time_hr:
-                pop_t = pop_c
-            else:
-                time_after_inhibit = t - inhibit_time_hr
-                pop_at_inhibit = initial_pop * (2 ** (inhibit_time_hr / gen_time_hr))
-                
-                effective_rate = (100 - inhibit_rate_pct) / 100.0
-                
-                if inhibit_rate_pct == 100:
-                    pop_t = pop_at_inhibit * math.exp(-0.1 * time_after_inhibit)
-                else:
-                    adjusted_gen_time = gen_time_hr / max(effective_rate, 0.001)
-                    pop_t = pop_at_inhibit * (2 ** (time_after_inhibit / adjusted_gen_time))
-
-            pop_treated.append(round(pop_t, 2))
-
-        # 데이터프레임 생성
-        df_result = pd.DataFrame({
-            "시간 (시간)": time_points,
-            "대조군 (미투여) 개체수": pop_control,
-            "실험군 (억제제 적용) 개체수": pop_treated
-        })
-
-        # Output UI
-        st.subheader("📊 1. 미생물 생장 시뮬레이션 메트릭")
-        
-        final_ctrl = pop_control[-1]
-        final_treat = pop_treated[-1]
-        reduction_rate = ((final_ctrl - final_treat) / final_ctrl) * 100 if final_ctrl > 0 else 0
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("최종 개체 수 (대조군)", f"{final_ctrl:,.0f} CFU")
-        col2.metric("최종 개체 수 (억제제 적용)", f"{final_treat:,.0f} CFU")
-        col3.metric("억제제에 의한 개체 수 감소율", f"{reduction_rate:.1f}%")
-
-        st.divider()
-
-        st.subheader("📈 2. 시간 경과에 따른 미생물 생장 곡선 (Line Chart)")
-        chart_df = df_result.set_index("시간 (시간)")
-        st.line_chart(chart_df)
-
-        st.divider()
-
-        st.subheader("📋 3. 상세 시간대별 수치 데이터")
-        st.dataframe(df_result, use_container_width=True)
-
-        st.divider()
-        st.subheader("💡 생물학적 진단 및 결론")
-        if final_ctrl > 1_000_000:
-            st.error("🚨 **위험 (Danger):** 미생물 개체 수가 100만 CFU를 초과하여 임계 수준에 도달했습니다.")
-        else:
-            st.info("✅ **안정 (Safe):** 미생물 증식 범위가 관리 가능한 수치입니다.")
-
-    except Exception as e:
-        st.error(f"🚨 연산 중 오류가 발생했습니다: {e}")
-        st.info("입력된 데이터 항목을 올바르게 기입했는지 확인해주세요.")
-
-else:
-    st.info("👈 왼쪽 사이드바에서 시뮬레이션 조건을 설정한 후 **[🧪 시뮬레이션 실행]** 버튼을 눌러주세요.")
+            st.warning("⚠️ 억제제 투여 시점이
