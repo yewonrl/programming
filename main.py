@@ -49,11 +49,10 @@ if submitted:
 
         # 핵심 알고리즘: 시간대별 개체 수 연산
         time_points = []
-        pop_control = []     # 대조군 (억제제 미투여)
-        pop_treated = []     # 실험군 (억제제 투여)
+        pop_control = []
+        pop_treated = []
         
-        gen_time_hr = gen_time_min / 60.0  # 분 단위를 시간 단위로 변환
-        
+        gen_time_hr = gen_time_min / 60.0
         step_hr = 0.5
         steps = int(total_hours / step_hr) + 1
 
@@ -61,6 +60,68 @@ if submitted:
             t = i * step_hr
             time_points.append(t)
             
-            # 1. 대조군 계산: N(t) = N0 * 2^(t / g)
+            # 1. 대조군 계산
             num_generations_ctrl = t / gen_time_hr
-            pop
+            pop_c = initial_pop * (2 ** num_generations_ctrl)
+            pop_control.append(round(pop_c, 2))
+            
+            # 2. 실험군 계산 (억제제 적용)
+            if not use_inhibitor or t < inhibit_time_hr:
+                pop_t = pop_c
+            else:
+                time_after_inhibit = t - inhibit_time_hr
+                pop_at_inhibit = initial_pop * (2 ** (inhibit_time_hr / gen_time_hr))
+                
+                effective_rate = (100 - inhibit_rate_pct) / 100.0
+                
+                if inhibit_rate_pct == 100:
+                    pop_t = pop_at_inhibit * math.exp(-0.1 * time_after_inhibit)
+                else:
+                    adjusted_gen_time = gen_time_hr / max(effective_rate, 0.001)
+                    pop_t = pop_at_inhibit * (2 ** (time_after_inhibit / adjusted_gen_time))
+
+            pop_treated.append(round(pop_t, 2))
+
+        # 데이터프레임 생성
+        df_result = pd.DataFrame({
+            "시간 (시간)": time_points,
+            "대조군 (미투여) 개체수": pop_control,
+            "실험군 (억제제 적용) 개체수": pop_treated
+        })
+
+        # Output UI
+        st.subheader("📊 1. 미생물 생장 시뮬레이션 메트릭")
+        
+        final_ctrl = pop_control[-1]
+        final_treat = pop_treated[-1]
+        reduction_rate = ((final_ctrl - final_treat) / final_ctrl) * 100 if final_ctrl > 0 else 0
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("최종 개체 수 (대조군)", f"{final_ctrl:,.0f} CFU")
+        col2.metric("최종 개체 수 (억제제 적용)", f"{final_treat:,.0f} CFU")
+        col3.metric("억제제에 의한 개체 수 감소율", f"{reduction_rate:.1f}%")
+
+        st.divider()
+
+        st.subheader("📈 2. 시간 경과에 따른 미생물 생장 곡선 (Line Chart)")
+        chart_df = df_result.set_index("시간 (시간)")
+        st.line_chart(chart_df)
+
+        st.divider()
+
+        st.subheader("📋 3. 상세 시간대별 수치 데이터")
+        st.dataframe(df_result, use_container_width=True)
+
+        st.divider()
+        st.subheader("💡 생물학적 진단 및 결론")
+        if final_ctrl > 1_000_000:
+            st.error("🚨 **위험 (Danger):** 미생물 개체 수가 100만 CFU를 초과하여 임계 수준에 도달했습니다.")
+        else:
+            st.info("✅ **안정 (Safe):** 미생물 증식 범위가 관리 가능한 수치입니다.")
+
+    except Exception as e:
+        st.error(f"🚨 연산 중 오류가 발생했습니다: {e}")
+        st.info("입력된 데이터 항목을 올바르게 기입했는지 확인해주세요.")
+
+else:
+    st.info("👈 왼쪽 사이드바에서 시뮬레이션 조건을 설정한 후 **[🧪 시뮬레이션 실행]** 버튼을 눌러주세요.")
