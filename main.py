@@ -29,7 +29,6 @@ with st.sidebar.form("sim_form"):
     st.subheader("💊 억제제(Inhibitor) 설정")
     use_inhibitor = st.checkbox("억제제 투여 적용", value=True)
     
-    # 억제제 종류 선택 기능 추가
     inhibitor_type = st.selectbox(
         "억제제 작용 메커니즘 종류",
         [
@@ -46,14 +45,3 @@ with st.sidebar.form("sim_form"):
     submitted = st.form_submit_button("🧪 시뮬레이션 실행")
 
 # ---------------------------------------------------------
-# Main Logic & Exception Handling
-# ---------------------------------------------------------
-if submitted:
-    try:
-        # 입력값 유효성 예외 처리
-        if initial_pop <= 0 or gen_time_min <= 0 or total_hours <= 0:
-            st.error("🚨 모든 입력값은 0보다 커야 합니다.")
-            st.stop()
-            
-        if use_inhibitor and inhibit_time_hr > total_hours:
-            st.warning("⚠️ 억제제 투여 시점이
