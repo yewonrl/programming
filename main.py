@@ -5,23 +5,23 @@ import math
 # Page Setup
 st.set_page_config(
     page_title="미생물 생장 시뮬레이터",
-    page_icon="🧫",
+    page_icon="microscope",
     layout="wide"
 )
 
-st.title("🧫 미생물 증식 및 억제제 효능 시뮬레이터")
-st.markdown("생명과학의 **효소 억제 메커니즘**을 적용한 미생물 생장 시뮬레이터입니다.")
+st.title("미생물 증식 및 억제제 효능 시뮬레이터")
+st.markdown("생명과학의 효소 억제 메커니즘을 적용한 미생물 생장 시뮬레이터입니다.")
 st.divider()
 
 # Sidebar Setup
-st.sidebar.header("⚙️ 조건 설정")
+st.sidebar.header("조건 설정")
 
-initial_pop = st.sidebar.number_input("초기 미생물 수 (N₀, CFU)", min_value=1, max_value=100000, value=100, step=10)
+initial_pop = st.sidebar.number_input("초기 미생물 수 (N0, CFU)", min_value=1, max_value=100000, value=100, step=10)
 gen_time_min = st.sidebar.number_input("1회 분열 소요 시간 (분)", min_value=1.0, max_value=1440.0, value=30.0, step=5.0)
 total_hours = st.sidebar.number_input("총 시뮬레이션 시간 (시간)", min_value=1, max_value=72, value=12, step=1)
 
 st.sidebar.divider()
-st.sidebar.subheader("💊 억제제 설정")
+st.sidebar.subheader("억제제 설정")
 use_inhibitor = st.sidebar.checkbox("억제제 적용", value=True)
 
 inhibitor_type = st.sidebar.selectbox(
@@ -30,7 +30,7 @@ inhibitor_type = st.sidebar.selectbox(
         "1. 경쟁적 억제제",
         "2. 비경쟁적 억제제",
         "3. 무경쟁적 억제제",
-        "4. 사멸 유도형 (100% 억제)"
+        "4. 사멸 유도형"
     ]
 )
 
@@ -39,7 +39,7 @@ inhibit_conc = st.sidebar.slider("억제제 농도 (%)", min_value=10, max_value
 
 # Main Logic
 if use_inhibitor and inhibit_time_hr > total_hours:
-    st.warning("⚠️ 투여 시점이 총 시간을 초과하여 자동 조정되었습니다.")
+    st.warning("투여 시점이 총 시간을 초과하여 자동 조정되었습니다.")
     inhibit_time_hr = float(total_hours)
 
 time_points = []
@@ -88,7 +88,7 @@ df_result = pd.DataFrame({
     f"실험군 ({inhibitor_type.split(' ')[1]})": pop_treated
 })
 
-st.subheader("📊 1. 시뮬레이션 결과 메트릭")
+st.subheader("1. 시뮬레이션 결과 메트릭")
 
 final_ctrl = pop_control[-1]
 final_treat = pop_treated[-1]
@@ -101,15 +101,23 @@ col3.metric("개체 수 감소율", f"{reduction_rate:.1f}%")
 
 st.divider()
 
-st.subheader(f"📈 2. 생장 곡선 시각화 [{inhibitor_type}]")
+st.subheader(f"2. 생장 곡선 시각화 [{inhibitor_type}]")
 chart_df = df_result.set_index("시간 (시간)")
 st.line_chart(chart_df)
 
 st.divider()
 
-st.subheader("🧪 생명과학 메커니즘 분석")
+st.subheader("3. 생명과학 메커니즘 분석")
 
 if "1. 경쟁적" in inhibitor_type:
-    st.info("💡 경쟁적 억제제: 활성 부위에 기질과 경쟁 결합합니다. 세대 시간이 증가합니다.")
+    st.info("경쟁적 억제제: 활성 부위에 기질과 경쟁 결합합니다. 세대 시간이 증가합니다.")
 elif "2. 비경쟁적" in inhibitor_type:
-    st.warning("💡
+    st.warning("비경쟁적 억제제: 다른 부위에 결합하여 구조를 변형합니다. Vmax가 감소합니다.")
+elif "3. 무경쟁적" in inhibitor_type:
+    st.info("무경쟁적 억제제: 효소-기질 복합체에 결합하여 반응을 방해합니다.")
+else:
+    st.error("사멸 유도형: 세균 분열 중단으로 개체 수가 감소합니다.")
+
+st.divider()
+st.subheader("4. 상세 수치 데이터")
+st.dataframe(df_result, use_container_width=True)
