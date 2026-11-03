@@ -39,11 +39,4 @@ inhibitor_type = st.sidebar.selectbox(
 )
 
 inhibit_time_hr = st.sidebar.number_input("억제제 투여 시점 (시간 후)", min_value=0.0, max_value=72.0, value=4.0, step=0.5)
-inhibit_conc = st.sidebar.slider("억제제 농도 / 강도 (%)", min_value=10, max_value=100, value=70)
-
-# ---------------------------------------------------------
-# Main Logic & Computation
-# ---------------------------------------------------------
-try:
-    if initial_pop <= 0 or gen_time_min <= 0 or total_hours <= 0:
-        st.error("🚨 모든 입력값은 0보다 커야 합니다
+inhibit_conc = st.sidebar.slider("억제제 농도 / 강도 (%)", min_value=10, max_value=100
